@@ -6,7 +6,12 @@ import {
   starsSearchQualifier,
   type TierId,
 } from "@/lib/constants";
-import { getCollectMaxReposCap, getDataRetentionDays, parseEnvInt } from "@/lib/env-config";
+import {
+  getCollectConcurrency,
+  getCollectMaxReposCap,
+  getDataRetentionDays,
+  getPushedWithinDays,
+} from "@/lib/env-config";
 import { formatDbError } from "@/lib/db/format-error";
 import { requireDb } from "@/lib/db/index";
 import {
@@ -80,13 +85,13 @@ export async function runDailyCollection(
     runDate = utcTodayString(now);
   }
   const calendarTodayUtc = utcTodayString(new Date());
-  const pushedWithin = parseEnvInt("PUSHED_WITHIN_DAYS", 30, { min: 1, max: 365 });
+  const pushedWithin = getPushedWithinDays();
   const pushedAfter = subtractDaysFromIsoDate(runDate, pushedWithin);
   const maxRepos = Math.min(
     opts?.maxReposOverride ?? getCollectMaxReposCap(),
     SEARCH_RESULT_CAP,
   );
-  const concurrency = parseEnvInt("COLLECT_CONCURRENCY", 12, { min: 1, max: 64 });
+  const concurrency = getCollectConcurrency();
 
   console.info("[collect] start", {
     runDate,

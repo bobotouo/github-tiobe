@@ -10,7 +10,12 @@ import {
 import { buildRepoEnrichMessages, REPO_ENRICH_PROMPT_VERSION } from "@/lib/enrich/prompt";
 import { requireDb } from "@/lib/db/index";
 import { collectionRuns, repoEnrichments } from "@/lib/db/schema";
-import { parseEnvInt } from "@/lib/env-config";
+import {
+  getEnrichGithubConcurrency,
+  getEnrichLlmConcurrency,
+  getLlmModel,
+  parseEnvInt,
+} from "@/lib/env-config";
 import { fetchRepoMetadata } from "@/lib/github/repo-metadata";
 import { searchRepositories } from "@/lib/github/search";
 import {
@@ -151,16 +156,9 @@ export async function runRepoEnrichment(
   const startedAt = Date.now();
   const db = requireDb();
   assertValidRunDate(opts.runDate);
-  const llmModel =
-    process.env.LLM_MODEL ?? "gpt-4o-mini";
-  const llmConcurrency = parseEnvInt("ENRICH_LLM_CONCURRENCY", 2, {
-    min: 1,
-    max: 16,
-  });
-  const ghConcurrency = parseEnvInt("ENRICH_GITHUB_CONCURRENCY", 8, {
-    min: 1,
-    max: 32,
-  });
+  const llmModel = getLlmModel();
+  const llmConcurrency = getEnrichLlmConcurrency();
+  const ghConcurrency = getEnrichGithubConcurrency();
   const llm429CooldownMs = parseEnvInt("ENRICH_LLM_429_COOLDOWN_MS", 180_000, {
     min: 10_000,
     max: 600_000,

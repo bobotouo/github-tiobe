@@ -1,4 +1,4 @@
-/** 运行时环境配置（集中一处，便于文档与部署对齐） */
+/** 运行时环境配置（集中一处；未设环境变量时用下列默认值，与 .env.example 对齐） */
 
 export function parseEnvInt(
   name: string,
@@ -48,41 +48,45 @@ export function getCollectMaxReposCap(): number {
   return parseEnvInt(name, 100, { min: 1, max: 1000 });
 }
 
-/** LLM 归纳每档默认处理数（与采集样本量解耦，节省 token / 耗时）。 */
-const ENRICH_MAX_REPOS_DEFAULT = 20;
+/** Search：`pushed:>DATE`，相对 run_date 向前推 N 天。默认 30。 */
+export function getPushedWithinDays(): number {
+  return parseEnvInt("PUSHED_WITHIN_DAYS", 30, { min: 1, max: 365 });
+}
+
+/** 并发拉取 `/languages`。默认 12。 */
+export function getCollectConcurrency(): number {
+  return parseEnvInt("COLLECT_CONCURRENCY", 12, { min: 1, max: 64 });
+}
+
+/** LLM 归纳每档默认处理数（与采集样本量解耦）。默认 20，最大 500。 */
+export function getEnrichMaxReposDefault(): number {
+  return parseEnvInt("ENRICH_MAX_REPOS", 20, { min: 1, max: 500 });
+}
 
 /**
- * LLM 归纳脚本每档处理上限：`ENRICH_MAX_REPOS` 可覆盖，默认 20，最大 500。
+ * 是否在每日采集后写入「新建仓库」Search 热度（需库表 `language_heat_snapshots`）。
+ * 默认开启；设 `COLLECT_HEAT=0` / `false` 关闭。
  */
-export function getEnrichMaxReposDefault(): number {
-  return parseEnvInt("ENRICH_MAX_REPOS", ENRICH_MAX_REPOS_DEFAULT, {
-    min: 1,
-    max: 500,
-  });
-}
-
-/** 是否在每日采集后写入「新建仓库」Search 热度（需库表 `language_heat_snapshots`）。默认关，设 `COLLECT_HEAT=1` 开启。 */
 export function getCollectHeatEnabled(): boolean {
   const v = (process.env.COLLECT_HEAT ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+  if (v === "0" || v === "false" || v === "no") return false;
+  if (v === "1" || v === "true" || v === "yes") return true;
+  return true;
 }
 
-/** 每档参与热度 Search 的语言数上限（按 Linguist 占比排序取 Top）。 */
+/** 每档参与热度 Search 的语言数上限（按 Linguist 占比排序取 Top）。默认 15。 */
 export function getCollectHeatTopLangs(): number {
   return parseEnvInt("COLLECT_HEAT_TOP_LANGS", 15, { min: 5, max: 50 });
 }
 
-/** 热度查询：`created:>= run_date - N`（UTC 日）。 */
+/** 热度查询：`created:>= run_date - N`（UTC 日）。默认 14。 */
 export function getCollectHeatLookbackDays(): number {
   return parseEnvInt("COLLECT_HEAT_LOOKBACK_DAYS", 14, { min: 1, max: 90 });
 }
 
-/**
- * 两次热度 Search 之间的间隔（毫秒）。
- * GitHub Search 对认证用户约 **30 次/分钟** 量级次级限流，默认 **2200ms**（略低于 30/min）以降低 403。
- */
+/** 两次热度 Search 之间的间隔（毫秒）。默认 2000。 */
 export function getCollectHeatSearchDelayMs(): number {
-  return parseEnvInt("COLLECT_HEAT_SEARCH_DELAY_MS", 2200, {
+  return parseEnvInt("COLLECT_HEAT_SEARCH_DELAY_MS", 2000, {
     min: 0,
     max: 120_000,
   });
@@ -99,8 +103,58 @@ export function getLlmBaseUrl(): string {
   const u =
     process.env.LLM_BASE_URL ??
     process.env.OPENAI_BASE_URL ??
-    "https://api.openai.com/v1";
+    "https://token-plan-cn.xiaomimimo.com/v1";
   return u.replace(/\/$/, "");
+}
+
+/** Chat Completions 模型名。默认 mimo-v2.5。 */
+export function getLlmModel(): string {
+  const m = process.env.LLM_MODEL?.trim();
+  return m && m.length > 0 ? m : "mimo-v2.5";
+}
+
+/** 单次 LLM 请求超时（毫秒）。默认 600000。 */
+export function getLlmTimeoutMs(): number {
+  return parseEnvInt("LLM_TIMEOUT_MS", 600_000, { min: 5000, max: 600_000 });
+}
+
+/** 相邻两次 LLM 请求最小间隔（毫秒）。默认 500。 */
+export function getLlmMinRequestIntervalMs(): number {
+  return parseEnvInt("LLM_MIN_REQUEST_INTERVAL_MS", 500, {
+    min: 0,
+    max: 120_000,
+  });
+}
+
+/** LLM 失败重试次数（不含首次）。默认 2。 */
+export function getLlmRetryMax(): number {
+  return parseEnvInt("LLM_RETRY_MAX", 2, { min: 0, max: 8 });
+}
+
+/** 收到 429 时退避基数（毫秒）。默认 5000。 */
+export function getLlm429BackoffBaseMs(): number {
+  return parseEnvInt("LLM_429_BACKOFF_BASE_MS", 5000, {
+    min: 1000,
+    max: 600_000,
+  });
+}
+
+/** 收到 429 时退避上限（毫秒）。默认 80000。 */
+export function getLlm429BackoffMaxMs(): number {
+  return parseEnvInt("LLM_429_BACKOFF_MAX_MS", 80_000, {
+    min: 10_000,
+    max: 600_000,
+  });
+}
+
+/** enrich：并发拉 GitHub 元数据。默认 5。 */
+export function getEnrichGithubConcurrency(): number {
+  return parseEnvInt("ENRICH_GITHUB_CONCURRENCY", 5, { min: 1, max: 32 });
+}
+
+/** enrich：并发 LLM 请求。默认 1。 */
+export function getEnrichLlmConcurrency(): number {
+  return parseEnvInt("ENRICH_LLM_CONCURRENCY", 1, { min: 1, max: 16 });
 }
 
 /**

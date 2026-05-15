@@ -3,10 +3,15 @@
  */
 
 import {
+  getLlm429BackoffBaseMs,
+  getLlm429BackoffMaxMs,
   getLlmApiKey,
   getLlmBaseUrl,
   getLlmJsonObjectResponseFormat,
-  parseEnvInt,
+  getLlmMinRequestIntervalMs,
+  getLlmModel,
+  getLlmRetryMax,
+  getLlmTimeoutMs,
 } from "@/lib/env-config";
 
 export type LlmChatMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -39,14 +44,8 @@ function retryBackoffMs(err: unknown, attempt: number): number {
   const msg = err instanceof Error ? err.message : String(err);
   // 限流时需要更长退避，避免连续撞上免费模型的瞬时额度
   if (/LLM 429:/.test(msg)) {
-    const base = parseEnvInt("LLM_429_BACKOFF_BASE_MS", 15000, {
-      min: 1000,
-      max: 600_000,
-    });
-    const max = parseEnvInt("LLM_429_BACKOFF_MAX_MS", 180_000, {
-      min: 10_000,
-      max: 600_000,
-    });
+    const base = getLlm429BackoffBaseMs();
+    const max = getLlm429BackoffMaxMs();
     return Math.min(max, base * 2 ** attempt);
   }
   return Math.min(20_000, 600 * 2 ** attempt);
@@ -62,7 +61,7 @@ async function chatJsonCompletionOnce(
     throw new Error("LLM_API_KEY or OPENAI_API_KEY is not set.");
   }
   const base = getLlmBaseUrl();
-  const model = process.env.LLM_MODEL ?? "gpt-4o-mini";
+  const model = getLlmModel();
 
   const body: Record<string, unknown> = {
     model,
@@ -76,11 +75,7 @@ async function chatJsonCompletionOnce(
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const minIntervalMs = parseEnvInt(
-      "LLM_MIN_REQUEST_INTERVAL_MS",
-      5000,
-      { min: 0, max: 120000 },
-    );
+    const minIntervalMs = getLlmMinRequestIntervalMs();
     const logWait = (process.env.LLM_LOG_RATE_LIMIT_WAIT ?? "").trim() === "1";
     const now = Date.now();
     const waitMs = Math.max(0, minIntervalMs - (now - lastLlmRequestAt));
@@ -133,12 +128,9 @@ async function chatJsonCompletionOnce(
 export async function chatJsonCompletion(
   messages: LlmChatMessage[],
 ): Promise<string> {
-  const timeoutMs = parseEnvInt("LLM_TIMEOUT_MS", 120_000, {
-    min: 5000,
-    max: 600_000,
-  });
+  const timeoutMs = getLlmTimeoutMs();
   const useJsonObject = getLlmJsonObjectResponseFormat();
-  const retries = parseEnvInt("LLM_RETRY_MAX", 2, { min: 0, max: 8 });
+  const retries = getLlmRetryMax();
 
   let lastErr: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
