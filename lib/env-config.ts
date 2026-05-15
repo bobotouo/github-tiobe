@@ -37,15 +37,15 @@ export function getPruneRetentionDays(): number {
 }
 
 /**
- * 采集：每档参与统计的仓库上限。`COLLECT_MAX_REPOS` 优先，否则 `SAMPLE_MAX_REPOS`，默认 800，最大 1000。
+ * 采集：每档参与统计的仓库上限。`COLLECT_MAX_REPOS` 优先，否则 `SAMPLE_MAX_REPOS`，默认 100，最大 1000。
  */
 export function getCollectMaxReposCap(): number {
   const explicit = process.env.COLLECT_MAX_REPOS;
   const sample = process.env.SAMPLE_MAX_REPOS;
   const raw = explicit ?? sample;
-  if (!raw) return 800;
+  if (!raw) return 100;
   const name = explicit != null ? "COLLECT_MAX_REPOS" : "SAMPLE_MAX_REPOS";
-  return parseEnvInt(name, 800, { min: 1, max: 1000 });
+  return parseEnvInt(name, 100, { min: 1, max: 1000 });
 }
 
 /** LLM 归纳每档默认处理数（与采集样本量解耦，节省 token / 耗时）。 */
