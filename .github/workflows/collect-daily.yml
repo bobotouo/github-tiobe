@@ -1,0 +1,32 @@
+# 每日采集写入 Postgres（Secrets: DATABASE_URL、GH_PAT；勿用 GITHUB_* 作 Secret 名）
+name: Collect daily
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run collection
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          DATA_RETENTION_DAYS: ${{ vars.DATA_RETENTION_DAYS }}
+          COLLECT_MAX_REPOS: ${{ vars.COLLECT_MAX_REPOS }}
+          SAMPLE_MAX_REPOS: ${{ vars.SAMPLE_MAX_REPOS }}
+          PUSHED_WITHIN_DAYS: ${{ vars.PUSHED_WITHIN_DAYS }}
+          COLLECT_CONCURRENCY: ${{ vars.COLLECT_CONCURRENCY }}
+        run: npm run collect:daily

@@ -1,0 +1,27 @@
+# 按 PRUNE_RETENTION_DAYS（默认 40）删除过旧采集数据；仅 DATABASE_URL。见 npm run prune:old-data
+name: Prune old data
+
+on:
+  schedule:
+    - cron: "30 5 * * 0"
+  workflow_dispatch: {}
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Prune runs older than retention
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PRUNE_RETENTION_DAYS: ${{ vars.PRUNE_RETENTION_DAYS }}
+        run: npm run prune:old-data
