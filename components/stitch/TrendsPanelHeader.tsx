@@ -19,7 +19,6 @@ type Props = {
   metric: LineChartValueMode;
   chartLabelShare: string;
   chartLabelHeat: string;
-  lang: string | null;
 };
 
 export function TrendsPanelHeader({
@@ -36,7 +35,6 @@ export function TrendsPanelHeader({
   metric,
   chartLabelShare,
   chartLabelHeat,
-  lang,
 }: Props) {
   return (
     <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -48,7 +46,6 @@ export function TrendsPanelHeader({
           tier={tier}
           from={chartFrom}
           to={chartTo}
-          lang={lang}
           metric={metric}
           labelShare={chartLabelShare}
           labelHeat={chartLabelHeat}

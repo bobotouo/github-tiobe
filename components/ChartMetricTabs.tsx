@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
+import { useLangNav } from "@/components/LangNavContext";
 import { type TierId } from "@/lib/constants";
 import { buildDashboardHref } from "@/lib/dashboard-url";
 import type { LineChartValueMode } from "@/lib/chart/buildSeries";
@@ -11,7 +12,6 @@ type Props = {
   tier: TierId;
   from: string;
   to: string;
-  lang: string | null;
   metric: LineChartValueMode;
   labelShare: string;
   labelHeat: string;
@@ -21,12 +21,12 @@ export function ChartMetricTabs({
   tier,
   from,
   to,
-  lang,
   metric,
   labelShare,
   labelHeat,
 }: Props) {
   const router = useRouter();
+  const { lang } = useLangNav();
 
   function push(next: LineChartValueMode) {
     router.push(

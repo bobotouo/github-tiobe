@@ -263,7 +263,6 @@ export default async function Page({
                 metric={chartMetric}
                 chartLabelShare={t.chart.tabShare}
                 chartLabelHeat={t.chart.tabHeat}
-                lang={focusLang}
               />
               <Card className="border-border gap-0 overflow-visible rounded-xl border bg-card py-0 shadow-none ring-0">
                 <CardContent className="px-6 pt-6 pb-3 md:px-8 md:pt-8 md:pb-4">
