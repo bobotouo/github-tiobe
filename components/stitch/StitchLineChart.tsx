@@ -21,6 +21,12 @@ import {
 } from "@/lib/chart/buildSeries";
 import { chartLineColorByIndex } from "@/lib/chart/lineHex";
 import { DEFAULT_TOP_LANGS_CHART } from "@/lib/constants";
+import {
+  velocityIndexForLanguage,
+  velocityIndexForLanguageHeat,
+  velocityIndexPercent,
+  velocityIndexPercentHeat,
+} from "@/lib/rankings";
 import { cn } from "@/lib/utils";
 
 type TooltipPayloadItem = {
@@ -202,8 +208,6 @@ type Props = {
   days: DayInput[];
   topN?: number;
   chartValue: LineChartValueMode;
-  velocityPct: number | null;
-  velocityTitle: string;
 };
 
 const FOCUS_MIN_SPAN = 0.48;
@@ -214,11 +218,31 @@ export function StitchLineChart({
   days,
   topN = DEFAULT_TOP_LANGS_CHART,
   chartValue,
-  velocityPct,
-  velocityTitle,
 }: Props) {
   const { lang: focusLang, setLang } = useLangNav();
   const { dict } = useI18n();
+
+  const velocityPct = useMemo(() => {
+    if (chartValue === "heat") {
+      return focusLang
+        ? velocityIndexForLanguageHeat(days, focusLang)
+        : velocityIndexPercentHeat(days);
+    }
+    return focusLang
+      ? velocityIndexForLanguage(days, focusLang)
+      : velocityIndexPercent(days);
+  }, [days, chartValue, focusLang]);
+
+  const velocityTitle = useMemo(() => {
+    if (chartValue === "heat") {
+      return focusLang
+        ? dict.chart.velocityMoMHeat(focusLang)
+        : dict.chart.velocityIndexHeat;
+    }
+    return focusLang
+      ? dict.chart.velocityMoM(focusLang)
+      : dict.chart.velocityIndex;
+  }, [chartValue, focusLang, dict.chart]);
 
   const model = useMemo(
     () => buildLineChartModel(days, topN, { value: chartValue }),

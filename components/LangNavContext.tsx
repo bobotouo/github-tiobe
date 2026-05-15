@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -37,23 +36,21 @@ export function LangNavProvider({
   metric,
   children,
 }: ProviderProps) {
-  const router = useRouter();
   const [lang, setLangState] = useState<string | null>(initialLang);
 
   const setLang = useCallback(
     (next: string | null) => {
       setLangState(next);
-      router.replace(
-        buildDashboardHref({
-          tier,
-          from,
-          to,
-          lang: next ?? undefined,
-          metric,
-        }),
-      );
+      const href = buildDashboardHref({
+        tier,
+        from,
+        to,
+        lang: next ?? undefined,
+        metric,
+      });
+      window.history.replaceState(window.history.state, "", href);
     },
-    [tier, from, to, metric, router],
+    [tier, from, to, metric],
   );
 
   const value = useMemo(() => ({ lang, setLang }), [lang, setLang]);

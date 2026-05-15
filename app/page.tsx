@@ -27,10 +27,6 @@ import { getSeriesForTierCached } from "@/lib/db/stats";
 import {
   buildRankingRows,
   buildRankingSparklineSeries,
-  velocityIndexForLanguage,
-  velocityIndexForLanguageHeat,
-  velocityIndexPercent,
-  velocityIndexPercentHeat,
 } from "@/lib/rankings";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { getServerLocale } from "@/lib/i18n/get-locale";
@@ -168,28 +164,10 @@ export default async function Page({
         )
       : {};
 
-  const velocityPct =
-    chartMetric === "heat"
-      ? focusLang
-        ? velocityIndexForLanguageHeat(chartDays, focusLang)
-        : velocityIndexPercentHeat(chartDays)
-      : focusLang
-        ? velocityIndexForLanguage(chartDays, focusLang)
-        : velocityIndexPercent(chartDays);
-
   const presetActive = matchPreset(chartFrom, chartTo, pickerMin, pickerMax);
 
   const locale = await getServerLocale();
   const t = getDictionary(locale);
-
-  const velocityTitle =
-    chartMetric === "heat"
-      ? focusLang
-        ? t.chart.velocityMoMHeat(focusLang)
-        : t.chart.velocityIndexHeat
-      : focusLang
-        ? t.chart.velocityMoM(focusLang)
-        : t.chart.velocityIndex;
 
   return (
     <LocaleProvider locale={locale}>
@@ -213,7 +191,7 @@ export default async function Page({
           </header>
 
           <LangNavProvider
-            key={`${tier}-${chartFrom}-${chartTo}-${chartMetric}-${focusLang ?? ""}`}
+            key={`${tier}-${chartFrom}-${chartTo}-${chartMetric}`}
             initialLang={focusLang}
             tier={tier}
             from={chartFrom}
@@ -269,8 +247,6 @@ export default async function Page({
                   <StitchLineChart
                     days={chartDaysForModel}
                     chartValue={chartMetric}
-                    velocityPct={velocityPct}
-                    velocityTitle={velocityTitle}
                   />
                 </CardContent>
               </Card>
