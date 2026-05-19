@@ -91,24 +91,27 @@ export function EnrichWordCloud({
           aria-hidden
         >
           {words.map((w, i) => (
-            <text
-              key={`${w.term}-${i}`}
-              x={w.x}
-              y={w.y}
-              textAnchor="middle"
-              dominantBaseline="central"
-              transform={`rotate(${w.rotate}, ${w.x}, ${w.y})`}
-              fontSize={w.fontSize}
-              fontFamily={FONT_UI}
-              fontWeight={w.fontSize >= 16 ? 800 : 700}
-              fill={w.color}
-              fillOpacity={w.opacity}
-              style={{ cursor: "default" }}
-              className="cursor-default transition-[fill-opacity,filter] duration-200 ease-out hover:brightness-110"
-            >
-              <title>{countLabel(w.term, w.count)}</title>
-              {w.term}
-            </text>
+            <g key={`${w.term}-${i}`} transform={`translate(${w.x}, ${w.y})`}>
+              <g transform={`rotate(${w.rotate})`}>
+                <g className="origin-[0px_0px] cursor-default transition-transform duration-150 ease-out hover:scale-[1.4]">
+                  <text
+                    x={0}
+                    y={0}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={w.fontSize}
+                    fontFamily={FONT_UI}
+                    fontWeight={w.fontSize >= 16 ? 800 : 700}
+                    fill={w.color}
+                    fillOpacity={w.opacity}
+                    className="pointer-events-auto transition-[fill-opacity,filter] duration-150 ease-out hover:fill-opacity-100 hover:brightness-125 hover:drop-shadow-sm"
+                  >
+                    <title>{countLabel(w.term, w.count)}</title>
+                    {w.term}
+                  </text>
+                </g>
+              </g>
+            </g>
           ))}
         </svg>
       )}
