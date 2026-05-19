@@ -8,6 +8,7 @@ import {
   type TierId,
 } from "@/lib/constants";
 import { buildRepoEnrichMessages, REPO_ENRICH_PROMPT_VERSION } from "@/lib/enrich/prompt";
+import { relinkSummariesToRun } from "@/lib/enrich/relink-enrichments";
 import { requireDb } from "@/lib/db/index";
 import { collectionRuns, repoEnrichments } from "@/lib/db/schema";
 import {
@@ -40,6 +41,7 @@ export type TierEnrichSummary = {
   runId: number;
   attempted: number;
   skipped: number;
+  relinked: number;
   failed: number;
   error?: string;
 };
@@ -226,6 +228,7 @@ export async function runRepoEnrichment(
       runId: 0,
       attempted: 0,
       skipped: 0,
+      relinked: 0,
       failed: 0,
     };
 
@@ -261,6 +264,13 @@ export async function runRepoEnrichment(
       const existingByName = new Map(
         existingRows.map((r) => [r.fullName, r.llmSummary]),
       );
+
+      tierSummary.relinked = await relinkSummariesToRun(fullNames, run.id);
+      if (tierSummary.relinked > 0) {
+        console.info(
+          `[enrich] tier ${tier} relinked ${tierSummary.relinked} summaries to run ${run.id}`,
+        );
+      }
 
       type Outcome = "skipped" | "ok" | "failed";
       const processOne = async (fullName: string): Promise<Outcome> => {
@@ -402,6 +412,7 @@ export async function runRepoEnrichment(
       console.info(`[enrich] tier ${tier} done`, {
         attempted: tierSummary.attempted,
         skipped: tierSummary.skipped,
+        relinked: tierSummary.relinked,
         failed: tierSummary.failed,
       });
     } catch (e) {

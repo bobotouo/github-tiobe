@@ -1,4 +1,5 @@
 import { LocaleProvider } from "@/components/i18n/locale-provider";
+import { RepoEnrichmentsPanel } from "@/components/stitch/RepoEnrichmentsPanel";
 import { RankingsTable } from "@/components/stitch/RankingsTable";
 import { SitePreferences } from "@/components/site-preferences";
 import { StitchLineChart } from "@/components/stitch/StitchLineChart";
@@ -23,7 +24,9 @@ import {
 } from "@/lib/chart-range";
 import { trimDaysForChartRsc } from "@/lib/chart/trimForRsc";
 import type { LineChartValueMode } from "@/lib/chart/buildSeries";
+import { loadRepoEnrichmentsForTiersCached } from "@/lib/db/load-repo-enrichments";
 import { getSeriesForTierCached } from "@/lib/db/stats";
+import type { RepoEnrichmentItem } from "@/lib/enrich/types";
 import {
   buildRankingRows,
   buildRankingSparklineSeries,
@@ -32,6 +35,9 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { getServerLocale } from "@/lib/i18n/get-locale";
 
 export const dynamic = "force-dynamic";
+
+const WORD_CLOUD_TIERS: TierId[] = ["1k", "2k", "3k", "5k"];
+const WORD_CLOUD_TIER_LABEL = "1k–10k";
 
 function utcTodayString(d = new Date()): string {
   return d.toISOString().slice(0, 10);
@@ -45,6 +51,29 @@ const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 function parseChartMetric(raw: string | undefined): LineChartValueMode {
   return raw?.trim().toLowerCase() === "heat" ? "heat" : "share";
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 export default async function Page({
@@ -87,22 +116,46 @@ export default async function Page({
   let loadError: string | null = null;
   const hasDb = Boolean(process.env.DATABASE_URL);
 
-  if (hasDb) {
-    try {
-      const { days } = await getSeriesForTierCached(tier, retentionStart, today);
-      seriesDays = days.map((d) => ({
-        runDate: d.runDate,
-        repoCount: d.repoCount,
-        languages: d.languages.map(({ language, share, heatRepoTotal }) => ({
-          language,
-          share,
-          heatRepoTotal,
-        })),
-      }));
-    } catch (e) {
-      loadError = e instanceof Error ? e.message : String(e);
-    }
-  }
+  const DB_TIMEOUT_MS = 18_000;
+
+  const [locale, seriesBlock] = await Promise.all([
+    getServerLocale(),
+    hasDb
+      ? (async () => {
+          try {
+            const { days } = await withTimeout(
+              getSeriesForTierCached(tier, retentionStart, today),
+              DB_TIMEOUT_MS,
+              "load series",
+            );
+            return { days, error: null as string | null };
+          } catch (e) {
+            return {
+              days: [] as Awaited<
+                ReturnType<typeof getSeriesForTierCached>
+              >["days"],
+              error: e instanceof Error ? e.message : String(e),
+            };
+          }
+        })()
+      : Promise.resolve({
+          days: [] as Awaited<
+            ReturnType<typeof getSeriesForTierCached>
+          >["days"],
+          error: null as string | null,
+        }),
+  ]);
+
+  loadError = seriesBlock.error;
+  seriesDays = seriesBlock.days.map((d) => ({
+    runDate: d.runDate,
+    repoCount: d.repoCount,
+    languages: d.languages.map(({ language, share, heatRepoTotal }) => ({
+      language,
+      share,
+      heatRepoTotal,
+    })),
+  }));
 
   const hasHeatData = seriesDays.some((d) =>
     d.languages.some(
@@ -164,9 +217,21 @@ export default async function Page({
         )
       : {};
 
+  let enrichItems: RepoEnrichmentItem[] = [];
+  if (hasDb) {
+    try {
+      enrichItems = await withTimeout(
+        loadRepoEnrichmentsForTiersCached(WORD_CLOUD_TIERS, snapshotDate),
+        DB_TIMEOUT_MS,
+        "load enrichments",
+      );
+    } catch {
+      enrichItems = [];
+    }
+  }
+
   const presetActive = matchPreset(chartFrom, chartTo, pickerMin, pickerMax);
 
-  const locale = await getServerLocale();
   const t = getDictionary(locale);
 
   return (
@@ -262,6 +327,14 @@ export default async function Page({
             repoCount={repoCount}
             showHeatColumn={hasHeatData}
             sparklinesByLanguage={sparklinesByLanguage}
+          />
+
+          <RepoEnrichmentsPanel
+            key={`enrich-${WORD_CLOUD_TIER_LABEL}-${snapshotDate}`}
+            tierLabel={WORD_CLOUD_TIER_LABEL}
+            snapshotDate={snapshotDate}
+            todayUtc={today}
+            items={enrichItems}
           />
         </main>
 

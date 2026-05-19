@@ -9,7 +9,13 @@ function ensureClients() {
   if (pgClient && dbClient) return;
   const connectionString = process.env.DATABASE_URL?.trim();
   if (!connectionString) return;
-  pgClient = postgres(connectionString, { prepare: false, max: 10 });
+  pgClient = postgres(connectionString, {
+    prepare: false,
+    max: 10,
+    /** Neon 冷启动 / pooler 偶发较慢，5s 易误判为连不上 */
+    connect_timeout: 25,
+    idle_timeout: 20,
+  });
   dbClient = drizzle(pgClient, { schema });
 }
 

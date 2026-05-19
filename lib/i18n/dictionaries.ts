@@ -39,6 +39,26 @@ const zh = {
     indexedNote:
       "多线：纵轴为相对区间首日的变化（Δ，百分点），便于对比谁先走强/走弱。",
   },
+  enrich: {
+    title: "新增热度分布",
+    subtitle:
+      "归纳该采集日在档内「活跃新仓」样本上的领域与标签集中方向；字号越大，越多当日新仓落在该主题。",
+    metaLine: (date: string, tier: string, repos: number, terms: number) =>
+      `${date} · ${tier} · ${repos} 个新仓样本 · ${terms} 个热点`,
+    dateCaption:
+      "与上方排行同一采集日；样本来自 Search 近期推送活跃仓，反映当日新增侧热度而非全站存量。",
+    badgeToday: "采集日 = 今天（UTC）",
+    badgeNotToday: (date: string) => `采集日 ${date}（非今天 UTC）`,
+    emptyHint:
+      "暂无新仓热点归纳。请先运行 npm run enrich:repos 或开启 GitHub Actions「Repo enrich」。",
+    termCount: (term: string, count: number) =>
+      `${term}：${count} 个新仓样本命中`,
+    cloudAria: (repos: number, terms: number, tier: string) =>
+      `${repos} 个新仓样本、${terms} 个热点词；短语文字蒙版（${tier} 档）`,
+    noTerms: "新仓样本已归纳但缺少领域/标签，可重新运行 enrich:repos。",
+    footnote:
+      "热点词按频次排入各字母区域（S / H / I / T、B / R / O），拼成「SHIT BRO」；悬停查看词频。领域标签权重高于 Topics。",
+  },
   rankings: {
     title: "每日排行",
     metaLine: (date: string, repos: number, langs: number) =>
@@ -109,6 +129,26 @@ const en = {
     tabHeat: "New-repo heat",
     indexedNote:
       "Multi-line Y: change from the first day in the range (Δ, percentage points).",
+  },
+  enrich: {
+    title: "New-repo heat map",
+    subtitle:
+      "Where newly active repos in this tier cluster by domain/tags on the snapshot day; larger text = more repos in that theme.",
+    metaLine: (date: string, tier: string, repos: number, terms: number) =>
+      `${date} · ${tier} · ${repos} new-repo samples · ${terms} hotspots`,
+    dateCaption:
+      "Same snapshot day as rankings; samples are recently pushed active repos—new-side heat, not full GitHub stock.",
+    badgeToday: "Snapshot is today (UTC)",
+    badgeNotToday: (date: string) => `Snapshot ${date} (not today UTC)`,
+    emptyHint:
+      "No new-repo heat enrichments yet. Run npm run enrich:repos or the Repo enrich workflow.",
+    termCount: (term: string, count: number) =>
+      `${term}: ${count} sample repos`,
+    cloudAria: (repos: number, terms: number, tier: string) =>
+      `New-repo heat word cloud: ${repos} samples, ${terms} terms in a text mask (${tier} tier)`,
+    noTerms: "Samples enriched but no domains/tags to aggregate. Re-run enrich:repos.",
+    footnote:
+      "Terms fill each letter (S / H / I / T, B / R / O) by frequency to form “SHIT BRO”. Hover for counts. Domain tags weigh more than Topics.",
   },
   rankings: {
     title: "Daily rankings",

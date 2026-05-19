@@ -155,8 +155,8 @@ export function RankingsTable({
   }
 
   return (
-    <section>
-      <Card className="border-border gap-0 rounded-xl border py-0 shadow-none ring-0">
+    <section className="mb-20">
+      <Card className="border-border gap-0 rounded-xl border bg-card py-0 shadow-none ring-0">
         <CardHeader className="space-y-0 border-b border-border px-6 pb-4 pt-6 sm:px-8">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
             <CardTitle className="text-2xl font-medium tracking-tight text-card-foreground">

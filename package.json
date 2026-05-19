@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "enrich:repos": "npx tsx scripts/enrich-repos-llm.ts",
+    "enrich:relink": "npx tsx scripts/relink-enrichments.ts",
     "collect:daily": "npx tsx scripts/collect-daily.ts",
     "collect:gap": "npx tsx scripts/collect-missing-range.ts",
     "backfill:heat": "npx tsx scripts/backfill-language-heat.ts",
