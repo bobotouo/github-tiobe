@@ -55,9 +55,12 @@ export async function collectLanguageHeatForRun(opts: {
     repoTotal: number;
   }> = [];
 
+  /** 热度 Search 在 env 间隔之上再加固定下限，减轻 secondary limit */
+  const effectiveDelayMs = Math.max(delayMs, 3000);
+
   for (let i = 0; i < sorted.length; i += 1) {
     const { language } = sorted[i];
-    if (i > 0 && delayMs > 0) await sleep(delayMs);
+    if (i > 0 && effectiveDelayMs > 0) await sleep(effectiveDelayMs);
     const langQ = languageQualifierForGitHubSearch(language);
     const q = `${starQ} language:${langQ} created:>=${createdFrom}`;
     const total = await searchRepositoriesTotalCount(q);

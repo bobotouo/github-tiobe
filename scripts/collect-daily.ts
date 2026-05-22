@@ -8,6 +8,7 @@
  *   npx tsx scripts/collect-daily.ts --quick
  *   npx tsx scripts/collect-daily.ts --max-repos=50
  *   npx tsx scripts/collect-daily.ts --date=2026-05-01
+ *   npx tsx scripts/collect-daily.ts --date=2026-05-19 --tier=2k,3k,5k,10k
  */
 import dotenv from "dotenv";
 import path from "node:path";
@@ -17,7 +18,7 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 import type { RunCollectOptions } from "@/lib/collect/run-collection";
 import { runDailyCollection } from "@/lib/collect/run-collection";
-import { SEARCH_RESULT_CAP } from "@/lib/constants";
+import { isTierId, SEARCH_RESULT_CAP, type TierId } from "@/lib/constants";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -25,6 +26,28 @@ function arg(name: string): string | undefined {
   const key = `--${name}=`;
   const hit = process.argv.find((a) => a.startsWith(key));
   return hit?.slice(key.length);
+}
+
+function parseTiers(): TierId[] | undefined {
+  const rawParts: string[] = [];
+  for (const a of process.argv) {
+    if (a.startsWith("--tier=")) {
+      rawParts.push(a.slice("--tier=".length));
+    }
+  }
+  if (rawParts.length < 1) return undefined;
+
+  const ids: TierId[] = [];
+  for (const raw of rawParts) {
+    for (const part of raw.split(",").map((s) => s.trim()).filter(Boolean)) {
+      if (!isTierId(part)) {
+        console.error("unknown --tier:", part);
+        process.exit(1);
+      }
+      if (!ids.includes(part)) ids.push(part);
+    }
+  }
+  return ids;
 }
 
 async function main() {
@@ -60,6 +83,11 @@ async function main() {
       process.exit(1);
     }
     opts = { ...(opts ?? {}), runDate: d };
+  }
+
+  const tiers = parseTiers();
+  if (tiers != null && tiers.length > 0) {
+    opts = { ...(opts ?? {}), tiers };
   }
 
   const summary = await runDailyCollection(new Date(), opts);

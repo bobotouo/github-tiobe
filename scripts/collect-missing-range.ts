@@ -59,7 +59,7 @@ async function main() {
   const auto = hasFlag("auto");
   const dayDelayMs = Math.max(
     0,
-    Number.parseInt(arg("day-delay-ms") ?? "3000", 10) || 0,
+    Number.parseInt(arg("day-delay-ms") ?? "8000", 10) || 0,
   );
 
   let opts: RunCollectOptions | undefined;

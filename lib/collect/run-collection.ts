@@ -20,6 +20,7 @@ import {
 } from "@/lib/db/prune-collection-data";
 import { collectionRuns, languageSnapshots } from "@/lib/db/schema";
 import { fetchRepoLanguages } from "@/lib/github/languages";
+import { createSequentialGate, sleep } from "@/lib/github/request-pace";
 import { searchRepositories } from "@/lib/github/search";
 import { mergeLanguageBytes, sharesFromBytes } from "@/lib/stats/aggregate";
 import { collectLanguageHeatForRun } from "@/lib/collect/collect-language-heat";
@@ -56,9 +57,18 @@ export type RunCollectOptions = {
    * 默认取 `now` 的 UTC 日；用于补采时与「今天」不一致则不会执行保留期裁剪，避免误删库内其它日期数据。
    */
   runDate?: string;
+  /** 只采指定档；缺省为全部 STAR_TIERS（保持定义顺序） */
+  tiers?: TierId[];
 };
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 档位之间暂停（非环境变量） */
+const TIER_PAUSE_MS = 12_000;
+/** Search 结束后再拉 languages，避免 Search 与 REST 叠峰 */
+const POST_SEARCH_PAUSE_MS = 2_500;
+/** 相邻 `/languages` 请求最小间隔（非环境变量；`COLLECT_CONCURRENCY` 仍控制并行槽位） */
+const LANG_REQUEST_GAP_MS = 500;
 
 function assertValidRunDate(s: string): void {
   if (!ISO_DAY.test(s)) {
@@ -93,8 +103,18 @@ export async function runDailyCollection(
   );
   const concurrency = getCollectConcurrency();
 
+  const tierDefs =
+    opts?.tiers != null && opts.tiers.length > 0
+      ? STAR_TIERS.filter((t) => opts.tiers!.includes(t.id))
+      : [...STAR_TIERS];
+
+  if (tierDefs.length < 1) {
+    throw new Error("no tiers to collect (check --tier)");
+  }
+
   console.info("[collect] start", {
     runDate,
+    tiers: tierDefs.map((t) => t.id),
     repoSampleCap: maxRepos,
     pushedAfter,
     concurrency,
@@ -110,26 +130,34 @@ export async function runDailyCollection(
 
   let allOk = true;
 
-  for (const [idx, tierDef] of STAR_TIERS.entries()) {
+  for (const [idx, tierDef] of tierDefs.entries()) {
     const { id: tier } = tierDef;
-    console.info(`[collect] tier ${idx + 1}/${STAR_TIERS.length} ${tier} preparing`);
+    console.info(`[collect] tier ${idx + 1}/${tierDefs.length} ${tier} preparing`);
     await deleteCollectionRunsForDayTier(runDate, tier);
 
     try {
-      if (STAR_TIERS[0].id !== tier) {
-        await new Promise<void>((r) => setTimeout(r, 500));
+      if (idx > 0) {
+        console.info(`[collect] pause before tier ${tier} (${TIER_PAUSE_MS}ms)`);
+        await sleep(TIER_PAUSE_MS);
       }
       const starQ = starsSearchQualifier(tierDef);
       const q = `${starQ} pushed:>${pushedAfter} sort:stars-desc`;
       console.info(`[collect] tier ${tier} searching repos`);
-      const { repos, totalCount } = await searchRepositories(q);
+      const { repos, totalCount } = await searchRepositories(q, {
+        maxItems: maxRepos,
+      });
       const slice = repos.slice(0, maxRepos);
       console.info(`[collect] tier ${tier} fetched ${slice.length}/${totalCount}, collecting languages`);
 
+      if (POST_SEARCH_PAUSE_MS > 0) {
+        await sleep(POST_SEARCH_PAUSE_MS);
+      }
+
       const limit = pLimit(concurrency);
+      const langGate = createSequentialGate(LANG_REQUEST_GAP_MS);
       const langMaps = await Promise.all(
         slice.map((r) =>
-          limit(() => fetchRepoLanguages(r.full_name)),
+          limit(() => langGate(() => fetchRepoLanguages(r.full_name))),
         ),
       );
 

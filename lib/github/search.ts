@@ -1,5 +1,6 @@
 import { SEARCH_RESULT_CAP } from "@/lib/constants";
-import { githubFetch, githubJson } from "@/lib/github/client";
+import { githubJsonWithRetry } from "@/lib/github/client";
+import { sleep } from "@/lib/github/request-pace";
 
 type SearchItem = { full_name: string };
 type SearchResponse = {
@@ -10,23 +11,28 @@ type SearchResponse = {
 
 const PER_PAGE = 100;
 const MAX_PAGES = SEARCH_RESULT_CAP / PER_PAGE;
-const PAGE_DELAY_MS = 1500;
+/** Search 分页间隔（非环境变量，仅降 secondary rate limit） */
+const PAGE_DELAY_MS = 4000;
 
-function delay(ms: number) {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
+export type SearchRepositoriesOptions = {
+  /** 凑够条目即停止翻页（避免为 100 样本拉满 10 页 Search） */
+  maxItems?: number;
+};
 
 export async function searchRepositories(
   q: string,
+  opts?: SearchRepositoriesOptions,
 ): Promise<{ repos: SearchItem[]; totalCount: number }> {
+  const cap = Math.min(
+    opts?.maxItems ?? SEARCH_RESULT_CAP,
+    SEARCH_RESULT_CAP,
+  );
   const repos: SearchItem[] = [];
   let totalCount = 0;
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     if (page > 1) {
-      await delay(PAGE_DELAY_MS);
+      await sleep(PAGE_DELAY_MS);
     }
     const params = new URLSearchParams({
       q,
@@ -35,17 +41,16 @@ export async function searchRepositories(
       per_page: String(PER_PAGE),
       page: String(page),
     });
-    const data = await githubJson<SearchResponse>(
-      `/search/repositories?${params.toString()}`,
-    );
+    const path = `/search/repositories?${params.toString()}`;
+    const data = await githubJsonWithRetry<SearchResponse>(path);
     totalCount = data.total_count;
     repos.push(...data.items);
-    if (data.items.length < PER_PAGE) {
+    if (data.items.length < PER_PAGE || repos.length >= cap) {
       break;
     }
   }
 
-  return { repos, totalCount };
+  return { repos: repos.slice(0, cap), totalCount };
 }
 
 /** 仅取 `total_count`（单页、小 payload），用于热度等不需要拉全量 items 的场景 */
@@ -58,34 +63,6 @@ export async function searchRepositoriesTotalCount(q: string): Promise<number> {
     page: "1",
   });
   const path = `/search/repositories?${params.toString()}`;
-  const maxAttempts = 8;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const res = await githubFetch(path);
-    if (res.status === 403 || res.status === 429) {
-      const retryAfter = res.headers.get("retry-after");
-      let waitMs = Math.min(120_000, 3000 * 2 ** (attempt - 1));
-      if (retryAfter) {
-        const sec = Number.parseInt(retryAfter, 10);
-        if (Number.isFinite(sec)) {
-          waitMs = Math.max(1000, sec * 1000);
-        }
-      }
-      console.warn(
-        `[github search] ${res.status} total_count, sleeping ${waitMs}ms (attempt ${attempt}/${maxAttempts})`,
-      );
-      await delay(waitMs);
-      continue;
-    }
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`GitHub ${res.status} ${path}: ${text.slice(0, 500)}`);
-    }
-    const data = (await res.json()) as SearchResponse;
-    return data.total_count;
-  }
-
-  throw new Error(
-    `GitHub search rate limited after ${maxAttempts} retries: ${path}`,
-  );
+  const data = await githubJsonWithRetry<SearchResponse>(path);
+  return data.total_count;
 }
