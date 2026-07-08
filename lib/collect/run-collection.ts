@@ -45,6 +45,8 @@ export type CollectSummary = {
     ok: boolean;
     repoCount?: number;
     searchTotal?: number;
+    heatRows?: number;
+    heatError?: string;
     error?: string;
   }>;
   pruned: boolean;
@@ -188,10 +190,13 @@ export async function runDailyCollection(
         share,
       }));
 
+      let heatRows: number | undefined;
+      let heatError: string | undefined;
+
       if (langRows.length > 0) {
         await db.insert(languageSnapshots).values(langRows);
         try {
-          await collectLanguageHeatForRun({
+          heatRows = await collectLanguageHeatForRun({
             runId: run.id,
             runDate,
             tierDef,
@@ -201,9 +206,10 @@ export async function runDailyCollection(
             })),
           });
         } catch (heatErr) {
+          heatError = heatErr instanceof Error ? heatErr.message : String(heatErr);
           console.warn(
             "[collect] language heat skipped",
-            heatErr instanceof Error ? heatErr.message : String(heatErr),
+            heatError,
           );
         }
       }
@@ -213,6 +219,8 @@ export async function runDailyCollection(
         ok: true,
         repoCount: slice.length,
         searchTotal: totalCount,
+        heatRows,
+        heatError,
       });
       console.info(`[collect] tier ${tier} done (${slice.length} repos)`);
     } catch (e) {

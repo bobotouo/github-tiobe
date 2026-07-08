@@ -35,8 +35,8 @@ export async function collectLanguageHeatForRun(opts: {
   runDate: string;
   tierDef: TierDef;
   languages: Array<{ language: string; share: number }>;
-}): Promise<void> {
-  if (!getCollectHeatEnabled()) return;
+}): Promise<number> {
+  if (!getCollectHeatEnabled()) return 0;
 
   const topN = getCollectHeatTopLangs();
   const delayMs = getCollectHeatSearchDelayMs();
@@ -68,8 +68,9 @@ export async function collectLanguageHeatForRun(opts: {
     rows.push({ runId: opts.runId, language, repoTotal: capped });
   }
 
-  if (rows.length === 0) return;
+  if (rows.length === 0) return 0;
 
   const db = requireDb();
   await db.insert(languageHeatSnapshots).values(rows);
+  return rows.length;
 }

@@ -41,7 +41,8 @@ jobs:
           LLM_JSON_OBJECT_FORMAT: ${{ vars.LLM_JSON_OBJECT_FORMAT }}
         run: |
           DATE="${{ github.event.inputs.run_date }}"
-          if [ -z "$DATE" ]; then
-            DATE=$(date -u -d "yesterday" +%F)
+          if [ -n "$DATE" ]; then
+            npx tsx scripts/enrich-repos-llm.ts --date="$DATE"
+          else
+            npm run enrich:repos
           fi
-          npx tsx scripts/enrich-repos-llm.ts --date="$DATE"

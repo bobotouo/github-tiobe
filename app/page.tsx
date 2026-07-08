@@ -12,6 +12,7 @@ import {
   CHART_RANGE_SHORT,
   RANKING_SPARKLINE_DAYS,
   RANKINGS_PREVIEW_COUNT,
+  TIER_IDS,
   isTierId,
   type TierId,
 } from "@/lib/constants";
@@ -36,8 +37,8 @@ import { getServerLocale } from "@/lib/i18n/get-locale";
 
 export const dynamic = "force-dynamic";
 
-const WORD_CLOUD_TIERS: TierId[] = ["1k", "2k", "3k", "5k"];
-const WORD_CLOUD_TIER_LABEL = "1k–10k";
+const WORD_CLOUD_TIERS: TierId[] = [...TIER_IDS];
+const WORD_CLOUD_TIER_LABEL = "1k+";
 
 function utcTodayString(d = new Date()): string {
   return d.toISOString().slice(0, 10);

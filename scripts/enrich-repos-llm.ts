@@ -10,12 +10,15 @@
  *   npx tsx scripts/enrich-repos-llm.ts --force
  */
 import dotenv from "dotenv";
+import { desc, eq } from "drizzle-orm";
 import path from "node:path";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 import { isTierId, type TierId } from "@/lib/constants";
+import { requireDb } from "@/lib/db/index";
+import { collectionRuns } from "@/lib/db/schema";
 import { runRepoEnrichment } from "@/lib/enrich/run-repo-enrichment";
 import { getEnrichMaxReposDefault } from "@/lib/env-config";
 
@@ -37,8 +40,24 @@ function parseLimit(): number {
   return getEnrichMaxReposDefault();
 }
 
+async function latestSuccessRunDate(): Promise<string> {
+  const db = requireDb();
+  const rows = await db
+    .select({ runDate: collectionRuns.runDate })
+    .from(collectionRuns)
+    .where(eq(collectionRuns.status, "success"))
+    .orderBy(desc(collectionRuns.runDate))
+    .limit(1);
+
+  const latest = rows[0]?.runDate;
+  if (!latest) {
+    throw new Error("no success runs found; pass --date=YYYY-MM-DD after collection");
+  }
+  return latest;
+}
+
 async function main() {
-  const runDate = (arg("date") ?? new Date().toISOString().slice(0, 10)).trim();
+  const runDate = (arg("date") ?? await latestSuccessRunDate()).trim();
   if (!ISO_DAY.test(runDate)) {
     console.error("Invalid --date=YYYY-MM-DD");
     process.exit(1);
